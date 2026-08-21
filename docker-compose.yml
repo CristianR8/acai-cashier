@@ -1,0 +1,79 @@
+services:
+  backend:
+    build:
+      context: ./acaipark-back
+    container_name: acaipark-cashier-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-acai_user}:${POSTGRES_PASSWORD:-acai_pass_change_me}@acaipark-db:5432/${POSTGRES_DB:-acai_prod}
+      AUTO_CREATE_TABLES: ${AUTO_CREATE_TABLES:-1}
+      AUTO_MIGRATE_SCHEMA: ${AUTO_MIGRATE_SCHEMA:-1}
+      FACTUS_ENABLED: ${FACTUS_ENABLED:-1}
+      FACTUS_ENVIRONMENT: ${FACTUS_ENVIRONMENT:-sandbox}
+      FACTUS_API_BASE_URL: ${FACTUS_API_BASE_URL:-https://api-sandbox.factus.com.co}
+      FACTUS_TOKEN_URL: ${FACTUS_TOKEN_URL:-https://api-sandbox.factus.com.co/oauth/token}
+      FACTUS_CLIENT_ID: ${FACTUS_CLIENT_ID:-}
+      FACTUS_CLIENT_SECRET: ${FACTUS_CLIENT_SECRET:-}
+      FACTUS_USERNAME: ${FACTUS_USERNAME:-}
+      FACTUS_PASSWORD: ${FACTUS_PASSWORD:-}
+      FACTUS_NUMBERING_RANGE_ID: ${FACTUS_NUMBERING_RANGE_ID:-}
+      FACTUS_PAYMENT_FORM_CODE: ${FACTUS_PAYMENT_FORM_CODE:-1}
+      FACTUS_PAYMENT_METHOD_CODE: ${FACTUS_PAYMENT_METHOD_CODE:-10}
+      FACTUS_OPERATION_TYPE: ${FACTUS_OPERATION_TYPE:-10}
+      FACTUS_DEFAULT_CUSTOMER_EMAIL: ${FACTUS_DEFAULT_CUSTOMER_EMAIL:-}
+      FACTUS_DEFAULT_CUSTOMER_ADDRESS: ${FACTUS_DEFAULT_CUSTOMER_ADDRESS:-No informado}
+      FACTUS_DEFAULT_MUNICIPALITY_ID: ${FACTUS_DEFAULT_MUNICIPALITY_ID:-}
+      FACTUS_IDENTIFICATION_DOCUMENT_ID: ${FACTUS_IDENTIFICATION_DOCUMENT_ID:-3}
+      FACTUS_LEGAL_ORGANIZATION_ID: ${FACTUS_LEGAL_ORGANIZATION_ID:-2}
+      FACTUS_CUSTOMER_TRIBUTE_ID: ${FACTUS_CUSTOMER_TRIBUTE_ID:-21}
+      FACTUS_ITEM_STANDARD_CODE_ID: ${FACTUS_ITEM_STANDARD_CODE_ID:-1}
+      FACTUS_ITEM_UNIT_MEASURE_ID: ${FACTUS_ITEM_UNIT_MEASURE_ID:-70}
+      FACTUS_ITEM_TRIBUTE_ID: ${FACTUS_ITEM_TRIBUTE_ID:-1}
+      FACTUS_ESTABLISHMENT_NAME: ${FACTUS_ESTABLISHMENT_NAME:-}
+      FACTUS_ESTABLISHMENT_ADDRESS: ${FACTUS_ESTABLISHMENT_ADDRESS:-}
+      FACTUS_ESTABLISHMENT_PHONE: ${FACTUS_ESTABLISHMENT_PHONE:-}
+      FACTUS_ESTABLISHMENT_EMAIL: ${FACTUS_ESTABLISHMENT_EMAIL:-}
+      FACTUS_ESTABLISHMENT_MUNICIPALITY_ID: ${FACTUS_ESTABLISHMENT_MUNICIPALITY_ID:-}
+      # Cloud/Linux containers cannot access a thermal printer attached to the POS PC.
+      POS_AUTO_PRINT_RECEIPT: ${POS_AUTO_PRINT_RECEIPT:-0}
+      POS_AUTO_PRINT_COMANDA: ${POS_AUTO_PRINT_COMANDA:-0}
+      POS_COMANDA_PRINTER: ${POS_COMANDA_PRINTER:-}
+      POS_COMANDA_SPLIT_BY_ZONE: ${POS_COMANDA_SPLIT_BY_ZONE:-1}
+      POS_COMANDA_COPIES: ${POS_COMANDA_COPIES:-1}
+      POS_RECEIPT_PRINTER: ${POS_RECEIPT_PRINTER:-M2020}
+      POS_RECEIPT_COPIES: ${POS_RECEIPT_COPIES:-1}
+      POS_RECEIPT_BUSINESS_NAME: ${POS_RECEIPT_BUSINESS_NAME:-ACAI PARK}
+      POS_RECEIPT_TAX_ID: ${POS_RECEIPT_TAX_ID:-}
+      POS_RECEIPT_ADDRESS: ${POS_RECEIPT_ADDRESS:-}
+      POS_RECEIPT_PHONE: ${POS_RECEIPT_PHONE:-}
+      POS_RECEIPT_FOOTER: ${POS_RECEIPT_FOOTER:-Gracias por tu compra. Te esperamos pronto.}
+      PRINT_AGENT_URL: ${PRINT_AGENT_URL:-}
+      PRINT_AGENT_TOKEN: ${PRINT_AGENT_TOKEN:-}
+    ports:
+      - "8001:8000"
+    networks:
+      - default
+      - acai_shared
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./acaipark-front
+    container_name: acaipark-cashier-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_API_BASE_URL: http://backend:8000
+      LOYALTY_PUBLIC_URL: ${LOYALTY_PUBLIC_URL:-}
+      NODE_ENV: production
+    ports:
+      - "3001:3000"
+
+networks:
+  acai_shared:
+    external: true
+    name: acai_shared
