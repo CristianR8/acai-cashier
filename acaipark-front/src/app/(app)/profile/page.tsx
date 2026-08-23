@@ -1,7 +1,6 @@
 "use client";
 
 import Breadcrumb from "@/components/Breadcrumbs/Breadcrumb";
-import TouchKeyboard from "@/components/TouchKeyboard";
 import { readAuth } from "@/lib/auth/storage";
 import Image from "next/image";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
@@ -22,7 +21,6 @@ export default function Page() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [showNameKeyboard, setShowNameKeyboard] = useState(false);
   const [data, setData] = useState({
     email: "",
     name: "",
@@ -224,8 +222,6 @@ export default function Page() {
                   type="text"
                   value={data.name}
                   onChange={onNameChange}
-                  onFocus={() => setShowNameKeyboard(true)}
-                  inputMode="none"
                   className="mt-1.5 w-full rounded-lg border border-stroke bg-transparent px-3 py-2 text-dark outline-none focus:border-primary dark:border-dark-3 dark:text-white"
                 />
               </label>
@@ -242,13 +238,6 @@ export default function Page() {
           </div>
         </div>
       </div>
-      {showNameKeyboard && (
-        <TouchKeyboard
-          value={data.name}
-          onChange={(name) => setData((prev) => ({ ...prev, name }))}
-          onClose={() => setShowNameKeyboard(false)}
-        />
-      )}
     </div>
   );
 }

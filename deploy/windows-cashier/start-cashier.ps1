@@ -14,7 +14,12 @@ trap {
 }
 
 function Test-DockerReady {
-  & docker version --format '{{.Server.Version}}' 2>$null | Out-Null
+  # Cuando Docker Desktop todavía está arrancando, docker.exe escribe el error
+  # en stderr. Con $ErrorActionPreference = Stop PowerShell lo trataba como una
+  # excepción y el lanzador terminaba antes de poder abrir Docker Desktop.
+  # Ejecutarlo mediante cmd descarta esa salida esperada y conserva el código
+  # de salida para saber si el daemon ya está disponible.
+  & cmd.exe /d /c 'docker version --format "{{.Server.Version}}" >NUL 2>&1'
   return $LASTEXITCODE -eq 0
 }
 

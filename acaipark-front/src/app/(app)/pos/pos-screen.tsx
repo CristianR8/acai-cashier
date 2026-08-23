@@ -21,7 +21,6 @@ import { FaRegEdit, FaRegTrashAlt } from "react-icons/fa";
 import { HiOutlineCash } from "react-icons/hi";
 import { RiProhibited2Line } from "react-icons/ri";
 import GuidedOrderBuilder, { type GuidedOrder } from "@/components/Pos/GuidedOrderBuilder";
-import { useCurrentUserRole } from "@/hooks/use-current-user-role";
 import { readAuth } from "@/lib/auth/storage";
 
 dayjs.extend(utc);
@@ -30,6 +29,7 @@ dayjs.extend(timezone);
 const COLOMBIA_TZ = "America/Bogota";
 const INC_RATE = 0.08;
 const POS_HIDDEN_FINISHED_ORDERS_KEY = "pos_hidden_finished_orders_v1";
+const FINISHED_ORDER_STATUSES = new Set(["paid", "closed", "void"]);
 
 function loadHiddenFinishedOrderIdsFromStorage() {
   if (typeof window === "undefined") return new Set<number>();
@@ -385,7 +385,6 @@ function ViewOrderModal({
 }
 
 export default function PosScreen() {
-  const { isAdministrator } = useCurrentUserRole();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<PosOrderOut[]>([]);
 
@@ -394,12 +393,10 @@ export default function PosScreen() {
   const [cart, setCart] = useState<Record<number, PosOrderItemCreate>>({});
   const [guidedEditDraft, setGuidedEditDraft] = useState<CartEditDraft | null>(null);
   const [noteInput, setNoteInput] = useState("");
-  const [clearFinishedStatus, setClearFinishedStatus] = useState<
-    "idle" | "loading"
-  >("idle");
   const [hiddenFinishedOrderIds, setHiddenFinishedOrderIds] = useState<
     Set<number>
   >(loadHiddenFinishedOrderIdsFromStorage);
+  const [historyNotice, setHistoryNotice] = useState<string | null>(null);
 
   const [submitStatus, setSubmitStatus] = useState<
     | { kind: "idle" }
@@ -488,14 +485,14 @@ export default function PosScreen() {
   const canCompletePayment = paymentMethod !== "cash" || hasEnoughCash;
 
   const activeOrders = useMemo(
-    () => orders.filter((o) => !["closed", "void"].includes(o.status)),
+    () => orders.filter((o) => !FINISHED_ORDER_STATUSES.has(o.status)),
     [orders],
   );
   const finishedOrders = useMemo(
     () =>
       orders.filter(
         (o) =>
-          ["closed", "void"].includes(o.status) &&
+          FINISHED_ORDER_STATUSES.has(o.status) &&
           !hiddenFinishedOrderIds.has(Number(o.id)),
       ),
     [orders, hiddenFinishedOrderIds],
@@ -634,34 +631,23 @@ export default function PosScreen() {
     }
   }
 
-  async function handleClearFinishedOrders() {
-    if (finishedOrders.length === 0) return;
-    if (!window.confirm("¿Limpiar historial de pedidos finalizados?")) return;
-    setClearFinishedStatus("loading");
-    try {
-      const res = await fetch("/api/pos/orders/finished", { method: "DELETE" });
-      const payload = (await res.json().catch(() => null)) as any;
-      if (!res.ok) {
-        window.alert(
-          (typeof payload?.message === "string" && payload.message) ||
-            (typeof payload?.detail === "string" && payload.detail) ||
-            "No se pudo limpiar el historial.",
-        );
-        return;
-      }
-      setHiddenFinishedOrderIds((prev) => {
-        const next = new Set(prev);
-        for (const order of finishedOrders) {
-          next.add(Number(order.id));
-        }
-        persistHiddenFinishedOrderIds(next);
-        return next;
-      });
-    } catch {
-      window.alert("Error limpiando el historial.");
-    } finally {
-      setClearFinishedStatus("idle");
+  function handleClearFinishedOrders() {
+    if (finishedOrders.length === 0) {
+      setHistoryNotice("No hay pedidos finalizados visibles para limpiar.");
+      return;
     }
+
+    setHiddenFinishedOrderIds((prev) => {
+      const next = new Set(prev);
+      for (const order of finishedOrders) {
+        next.add(Number(order.id));
+      }
+      persistHiddenFinishedOrderIds(next);
+      return next;
+    });
+    setHistoryNotice(
+      "Historial ocultado de esta interfaz. Los pedidos y las ventas siguen guardados en la base de datos.",
+    );
   }
 
   function resetPaymentForm() {
@@ -1122,13 +1108,28 @@ export default function PosScreen() {
               como entregadas.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void loadOrders()}
-            className="ml-auto rounded-lg border border-primary/40 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10"
-          >
-            Actualizar pedidos
-          </button>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleClearFinishedOrders}
+              disabled={finishedOrders.length === 0}
+              className={
+                "rounded-lg border px-3 py-2 text-sm font-semibold " +
+                (finishedOrders.length === 0
+                  ? "cursor-not-allowed border-gray-200 text-gray-400"
+                  : "border-red/60 text-red hover:border-red hover:bg-red/10")
+              }
+            >
+              Limpiar historial
+            </button>
+            <button
+              type="button"
+              onClick={() => void loadOrders()}
+              className="rounded-lg border border-primary/40 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10"
+            >
+              Actualizar pedidos
+            </button>
+          </div>
         </div>
 
         {activeOrders.length === 0 ? (
@@ -1296,8 +1297,7 @@ export default function PosScreen() {
         )}
       </div>
 
-      {isAdministrator ? (
-        <div className="mt-6 rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark">
+      <div className="mt-6 rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <div>
               <h2 className="text-lg font-semibold text-dark dark:text-white">
@@ -1307,25 +1307,13 @@ export default function PosScreen() {
                 Pedidos pagados o anulados.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleClearFinishedOrders}
-              disabled={
-                finishedOrders.length === 0 || clearFinishedStatus === "loading"
-              }
-              className={
-                "ml-auto rounded-lg border px-3 py-2 text-sm font-semibold " +
-                (finishedOrders.length === 0 ||
-                clearFinishedStatus === "loading"
-                  ? "cursor-not-allowed border-gray-200 text-gray-400"
-                  : "border-red/60 text-red hover:border-red hover:bg-red/10")
-              }
-            >
-              {clearFinishedStatus === "loading"
-                ? "Limpiando..."
-                : "Limpiar historial"}
-            </button>
           </div>
+
+          {historyNotice ? (
+            <p className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-200">
+              {historyNotice}
+            </p>
+          ) : null}
 
           {finishedOrders.length === 0 ? (
             <p className="text-sm text-dark-6 dark:text-dark-6">
@@ -1446,7 +1434,6 @@ export default function PosScreen() {
             </Table>
           )}
         </div>
-      ) : null}
 
       {paymentModalOpen && paymentOrder ? (
         <div
@@ -1628,7 +1615,7 @@ export default function PosScreen() {
             ) : null}
 
             {paymentStep === "choice" ? (
-              <div className="order-1 grid gap-3 sm:grid-cols-3">
+              <div className="order-1 grid gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -1642,26 +1629,6 @@ export default function PosScreen() {
                   className="rounded-lg border border-stroke px-3 py-3 text-sm font-semibold text-dark hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
                 >
                   Cliente ocasional
-                </button>
-                <button
-                  type="button"
-                  onClick={handleStartLoyaltyRegistration}
-                  disabled={paymentStatus.kind === "loading"}
-                  className="rounded-lg bg-primary px-3 py-3 text-sm font-semibold text-white hover:bg-primary/90"
-                >
-                  Cliente nuevo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentStep("existing");
-                    setPaymentStatus({ kind: "idle" });
-                    setCustomerSearchInput("");
-                    loadCustomers();
-                  }}
-                  className="rounded-lg border border-primary/40 px-3 py-3 text-sm font-semibold text-primary hover:border-primary hover:bg-primary/10"
-                >
-                  Cliente existente
                 </button>
               </div>
             ) : null}

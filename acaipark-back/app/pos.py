@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import textwrap
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -100,6 +101,11 @@ def _format_cop(value: Decimal) -> str:
     return f"${int(rounded):,}".replace(",", ".")
 
 
+def _center_receipt_text(text: str, width: int) -> list[str]:
+    """Ajusta y centra únicamente un bloque de texto en el recibo térmico."""
+    return [line.center(width) for line in textwrap.wrap(text, width=width)]
+
+
 def _build_ticket_text(
     *,
     order_id: int,
@@ -163,7 +169,7 @@ def _build_sale_receipt_text(
 
     lines = [business_name.upper()]
     if tax_id:
-        lines.append(f"NIT: {tax_id}")
+        lines.append(f"NIR: {tax_id}")
     if address:
         lines.append(address)
     if phone:
@@ -174,9 +180,14 @@ def _build_sale_receipt_text(
             separator,
             f"RECIBO DE VENTA #{sale.id}",
             f"Fecha: {created_local}",
-            "Este documento no reemplaza la factura de venta ni el documento equivalente, es un soporte de uso contable",
             f"Vendedor: {sale.registered_by_name or 'ACAI PARK'}",
         ]
+    )
+    lines.extend(
+        _center_receipt_text(
+            "Este documento no reemplaza la factura de venta ni el documento equivalente, es un soporte de uso contable",
+            width,
+        )
     )
     if customer:
         lines.append(f"Cliente: {customer.name}")

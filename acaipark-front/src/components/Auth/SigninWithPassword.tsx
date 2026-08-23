@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import InputGroup from "../FormElements/InputGroup";
-import TouchKeyboard from "../TouchKeyboard";
 import { storeAuth } from "@/lib/auth/storage";
 
 export default function SigninWithPassword() {
@@ -17,7 +16,6 @@ export default function SigninWithPassword() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [keyboardField, setKeyboardField] = useState<"email" | "password" | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setData({
@@ -84,8 +82,6 @@ export default function SigninWithPassword() {
         handleChange={handleChange}
         value={data.email}
         icon={<EmailIcon />}
-        onFocus={() => setKeyboardField("email")}
-        inputMode="none"
       />
 
       <InputGroup
@@ -97,8 +93,6 @@ export default function SigninWithPassword() {
         handleChange={handleChange}
         value={data.password}
         icon={<PasswordIcon />}
-        onFocus={() => setKeyboardField("password")}
-        inputMode="none"
       />
 
       <div className="mb-6 flex items-center justify-between gap-2 py-2 font-medium text-gray">
@@ -127,14 +121,6 @@ export default function SigninWithPassword() {
         </button>
       </div>
 
-      {keyboardField && (
-        <TouchKeyboard
-          value={data[keyboardField]}
-          onChange={(value) => setData((current) => ({ ...current, [keyboardField]: value }))}
-          onClose={() => setKeyboardField(null)}
-          mode={keyboardField === "email" ? "email" : "password"}
-        />
-      )}
     </form>
   );
 }
