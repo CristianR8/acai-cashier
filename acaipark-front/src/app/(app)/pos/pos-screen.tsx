@@ -1074,6 +1074,7 @@ export default function PosScreen() {
         return;
       }
       await loadOrders();
+      openPaymentModal(payload as PosOrderOut);
       setCart({});
       setGuidedEditDraft(null);
       setNoteInput("");
@@ -1097,6 +1098,7 @@ export default function PosScreen() {
 
   return (
     <div className="flex flex-col gap-4">
+      {false ? (
       <div className="rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <div>
@@ -1296,6 +1298,7 @@ export default function PosScreen() {
           </Table>
         )}
       </div>
+      ) : null}
 
       <div className="mt-6 rounded-[10px] border border-stroke bg-white p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark">
           <div className="mb-4 flex flex-wrap items-center gap-2">
