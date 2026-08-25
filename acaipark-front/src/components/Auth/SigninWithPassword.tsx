@@ -2,7 +2,7 @@
 import { EmailIcon, PasswordIcon } from "@/assets/icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import InputGroup from "../FormElements/InputGroup";
 import { storeAuth } from "@/lib/auth/storage";
 
@@ -15,7 +15,12 @@ export default function SigninWithPassword() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setData({
@@ -27,13 +32,20 @@ export default function SigninWithPassword() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // Password managers and browser autofill do not always dispatch React's
+    // change event. Read the visible form values so the first submit cannot
+    // send stale empty state and clear an autofilled form.
+    const formData = new FormData(e.currentTarget);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
     setError(null);
     setLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: data.email, password: data.password }),
+        body: JSON.stringify({ email, password }),
       });
 
       const payload = (await response.json().catch(() => null)) as {
@@ -81,6 +93,7 @@ export default function SigninWithPassword() {
         name="email"
         handleChange={handleChange}
         value={data.email}
+        required
         icon={<EmailIcon />}
       />
 
@@ -92,6 +105,7 @@ export default function SigninWithPassword() {
         name="password"
         handleChange={handleChange}
         value={data.password}
+        required
         icon={<PasswordIcon />}
       />
 
@@ -112,7 +126,9 @@ export default function SigninWithPassword() {
         )}
         <button
           type="submit"
-          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary p-4 font-medium text-white transition hover:bg-opacity-90"
+          disabled={!hydrated || loading}
+          aria-busy={loading}
+          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary p-4 font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
         >
           Iniciar sesión
           {loading && (

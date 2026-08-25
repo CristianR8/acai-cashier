@@ -1042,9 +1042,23 @@ export default function PosScreen() {
 
     setSubmitStatus({ kind: "loading" });
     try {
+      const auth = readAuth();
+      const authorization = auth?.accessToken
+        ? `${auth.tokenType || "Bearer"} ${auth.accessToken}`
+        : null;
+      if (!authorization) {
+        setSubmitStatus({
+          kind: "error",
+          message: "La sesiÃ³n expirÃ³. Inicia sesiÃ³n nuevamente para crear el pedido.",
+        });
+        return;
+      }
       const res = await fetch("/api/pos/orders", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          authorization,
+        },
         body: JSON.stringify({
           table_id: selectedTableId,
           service_total: 0,
