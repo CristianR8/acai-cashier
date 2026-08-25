@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import textwrap
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +17,7 @@ router = APIRouter(prefix="/pos", tags=["pos"])
 logger = logging.getLogger("uvicorn.error")
 
 INC_RATE = Decimal("0.08")
+STORE_TIMEZONE = timezone(timedelta(hours=-5), name="America/Bogota")
 
 
 BAR_CATEGORY_KEYS = {
@@ -101,6 +102,13 @@ def _format_cop(value: Decimal) -> str:
     return f"${int(rounded):,}".replace(",", ".")
 
 
+def _store_time(value: datetime) -> datetime:
+    """Render persisted UTC timestamps in the same timezone as the POS PC."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(STORE_TIMEZONE)
+
+
 def _center_receipt_text(text: str, width: int) -> list[str]:
     """Ajusta y centra únicamente un bloque de texto en el recibo térmico."""
     return [line.center(width) for line in textwrap.wrap(text, width=width)]
@@ -114,7 +122,7 @@ def _build_ticket_text(
     created_at: datetime,
     items: list[models.PosOrderItem],
 ) -> str:
-    created_local = created_at.astimezone().strftime("%Y-%m-%d %H:%M")
+    created_local = _store_time(created_at).strftime("%Y-%m-%d %H:%M:%S")
     lines = [
         "ACAIPARK POS",
         f"COMANDA #{order_id}",
@@ -146,7 +154,7 @@ def _build_sale_receipt_text(
     width = 40
     separator = "-" * width
     created_at = sale.created_at or order.closed_at or datetime.now(timezone.utc)
-    created_local = created_at.astimezone().strftime("%Y-%m-%d %H:%M")
+    created_local = _store_time(created_at).strftime("%Y-%m-%d %H:%M:%S")
     business_name = (os.getenv("POS_RECEIPT_BUSINESS_NAME") or "ACAI PARK").strip()
     tax_id = (os.getenv("POS_RECEIPT_TAX_ID") or "").strip()
     address = (os.getenv("POS_RECEIPT_ADDRESS") or "").strip()

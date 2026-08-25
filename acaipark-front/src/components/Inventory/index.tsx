@@ -11,6 +11,10 @@ type InventoryProduct = {
   sku?: string | null;
   kind: string;
   unit?: string | null;
+  category?: string | null;
+  grams_per_ice_cream?: string | null;
+  topping_cost?: string | null;
+  supplier_name?: string | null;
   on_hand: string;
   average_cost: string;
   last_cost: string;
@@ -1542,18 +1546,11 @@ export default function Inventory({
                 <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">
                   Producto
                 </th>
-                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">
-                  Unidad
-                </th>
-                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">
-                  Stock
-                </th>
-                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">
-                  Costo unit.
-                </th>
-                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">
-                  Costo total
-                </th>
+                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">Categoría</th>
+                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">Marca / Proveedor</th>
+                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">Presentación</th>
+                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">Gramos en helado</th>
+                <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">Costo por topping</th>
                 <th className="px-4 py-3 text-sm font-medium text-dark dark:text-white">
                   Acciones
                 </th>
@@ -1563,7 +1560,7 @@ export default function Inventory({
               {loading ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="text-body-color px-4 py-6 text-sm dark:text-dark-6"
                   >
                     Cargando...
@@ -1572,7 +1569,7 @@ export default function Inventory({
               ) : filteredProducts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="text-body-color px-4 py-6 text-sm dark:text-dark-6"
                   >
                     No hay productos en esta sección.
@@ -1585,22 +1582,16 @@ export default function Inventory({
                       <td className="px-4 py-3 text-sm text-dark dark:text-white">
                         {p.name}
                       </td>
+                      <td className="text-body-color px-4 py-3 text-sm dark:text-dark-6">{p.category || "-"}</td>
+                      <td className="text-body-color px-4 py-3 text-sm dark:text-dark-6">{p.supplier_name || "-"}</td>
                       <td className="text-body-color px-4 py-3 text-sm dark:text-dark-6">
-                        {formatUnitAbbr(p.unit)}
+                        {formatQty(p.on_hand)} {formatUnitAbbr(p.unit)}
                       </td>
                       <td className="text-body-color px-4 py-3 text-sm dark:text-dark-6">
-                        {formatQty(p.on_hand)}
+                        {p.grams_per_ice_cream ? `${formatQty(p.grams_per_ice_cream)} GR` : "-"}
                       </td>
                       <td className="text-body-color px-4 py-3 text-sm dark:text-dark-6">
-                        {formatCop(p.average_cost)}
-                      </td>
-                      <td className="text-body-color px-4 py-3 text-sm dark:text-dark-6">
-                        {(() => {
-                          const qty = safeNumber(p.on_hand);
-                          const unitCost = safeNumber(p.average_cost);
-                          if (qty === null || unitCost === null) return "-";
-                          return formatCop(qty * unitCost);
-                        })()}
+                        {p.topping_cost ? formatCop(p.topping_cost) : "-"}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex flex-wrap gap-2">
@@ -1626,7 +1617,7 @@ export default function Inventory({
                     </tr>
                     {showEdit && editingId === p.id ? (
                       <tr className="border-b border-stroke dark:border-dark-3">
-                        <td colSpan={6} className="px-4 pb-4 pt-2">
+                        <td colSpan={7} className="px-4 pb-4 pt-2">
                           <div className="rounded-md border border-stroke bg-gray-1 p-4 dark:border-dark-3 dark:bg-dark-2">
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                               <div className="flex flex-col gap-1">
