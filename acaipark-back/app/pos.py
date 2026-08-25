@@ -124,23 +124,23 @@ def _build_ticket_text(
 ) -> str:
     created_local = _store_time(created_at).strftime("%Y-%m-%d %H:%M:%S")
     lines = [
-        "ACAIPARK POS",
-        f"COMANDA #{order_id}",
-        f"MESA: {table_name}",
-        f"ZONA: {zone_label}",
-        f"FECHA: {created_local}",
-        "-" * 40,
+        "  ACAIPARK POS",
+        f"  COMANDA #{order_id}",
+        f"  MESA: {table_name}",
+        f"  ZONA: {zone_label}",
+        f"  FECHA: {created_local}",
+        "  " + "-" * 40,
     ]
 
     for item in items:
         qty_text = _format_quantity(Decimal(item.quantity))
         item_name = (item.name or "").strip()
-        lines.append(f"{qty_text} x {item_name}")
+        lines.append(f"  {qty_text} x {item_name}")
         note = (item.note or "").strip()
         if note:
-            lines.append(f"  Nota: {note}")
+            lines.append(f"    Nota: {note}")
 
-    lines.append("-" * 40)
+    lines.append("  " + "-" * 40)
     lines.append("")
     return "\n".join(lines)
 
@@ -184,18 +184,19 @@ def _build_sale_receipt_text(
         lines.append(f"Tel: {phone}")
 
     lines.extend(
+        _center_receipt_text(
+            "Este documento no reemplaza la factura de venta ni el documento equivalente, es un soporte de uso contable",
+            width,
+        )
+    )
+
+    lines.extend(
         [
             separator,
             f"RECIBO DE VENTA #{sale.id}",
             f"Fecha: {created_local}",
             f"Vendedor: {sale.registered_by_name or 'ACAI PARK'}",
         ]
-    )
-    lines.extend(
-        _center_receipt_text(
-            "Este documento no reemplaza la factura de venta ni el documento equivalente, es un soporte de uso contable",
-            width,
-        )
     )
     if customer:
         lines.append(f"Cliente: {customer.name}")
@@ -243,8 +244,8 @@ def _build_sale_receipt_text(
     return "\n".join(lines)
 
 
-def _send_text_to_windows_printer(*, text: str, printer_hint: str, copies: int) -> None:
-    print_thermal_text(text=text, printer_hint=printer_hint, copies=copies)
+def _send_text_to_windows_printer(*, text: str, printer_hint: str, copies: int, include_logo: bool = True) -> None:
+    print_thermal_text(text=text, printer_hint=printer_hint, copies=copies, include_logo=include_logo)
 
 
 def _auto_print_comanda(
@@ -292,7 +293,7 @@ def _auto_print_comanda(
             items=zone_items,
         )
         try:
-            _send_text_to_windows_printer(text=ticket_text, printer_hint=printer_hint, copies=copies)
+            _send_text_to_windows_printer(text=ticket_text, printer_hint=printer_hint, copies=copies, include_logo=False)
             logger.info(
                 "Comanda #%s enviada a impresora '%s' (zona=%s, items=%s)",
                 order_id,
