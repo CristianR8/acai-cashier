@@ -16,7 +16,7 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FaRegEdit, FaRegTrashAlt } from "react-icons/fa";
 import { HiOutlineCash } from "react-icons/hi";
 import { RiProhibited2Line } from "react-icons/ri";
@@ -101,6 +101,16 @@ type LoyaltyRegistration = {
 };
 
 type PaymentMethod = "cash" | "dataphone" | "transfer";
+
+type CashDrawerSummary = {
+  business_date: string;
+  initialized: boolean;
+  opening_amount?: number | string | null;
+  opening_source?: string | null;
+  previous_day_cash_sales: number | string;
+  today_cash_sales: number | string;
+  current_cash?: number | string | null;
+};
 
 type PosOrderItemCreate = {
   menu_item_id: number;
@@ -428,6 +438,12 @@ export default function PosScreen() {
     | { kind: "success"; message: string }
     | { kind: "error"; message: string }
   >({ kind: "idle" });
+  const [cashDrawer, setCashDrawer] = useState<CashDrawerSummary | null>(null);
+  const [cashDrawerLoading, setCashDrawerLoading] = useState(true);
+  const [cashDrawerSource, setCashDrawerSource] = useState<"previous_cash_sales" | "manual">("previous_cash_sales");
+  const [manualOpeningAmount, setManualOpeningAmount] = useState("");
+  const [cashDrawerSaving, setCashDrawerSaving] = useState(false);
+  const [cashDrawerError, setCashDrawerError] = useState<string | null>(null);
 
   const [deliveryStatus, setDeliveryStatus] = useState<
     | { kind: "idle" }
@@ -437,6 +453,55 @@ export default function PosScreen() {
   >({ kind: "idle" });
 
   const cartItems = useMemo(() => Object.values(cart), [cart]);
+
+  const loadCashDrawer = useCallback(async () => {
+    const auth = readAuth();
+    const authorization = auth?.accessToken ? `${auth.tokenType || "Bearer"} ${auth.accessToken}` : null;
+    if (!authorization) {
+      setCashDrawerLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch("/api/cash-drawer/today", { cache: "no-store", headers: { authorization } });
+      const payload = (await response.json().catch(() => null)) as CashDrawerSummary | { message?: string; detail?: string } | null;
+      if (!response.ok) throw new Error((payload as any)?.message || (payload as any)?.detail || "No se pudo cargar la caja del día.");
+      setCashDrawer(payload as CashDrawerSummary);
+      setCashDrawerError(null);
+    } catch (error) {
+      setCashDrawerError(error instanceof Error ? error.message : "No se pudo cargar la caja del día.");
+    } finally {
+      setCashDrawerLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadCashDrawer(); }, [loadCashDrawer]);
+
+  async function saveCashDrawerOpening() {
+    const auth = readAuth();
+    const authorization = auth?.accessToken ? `${auth.tokenType || "Bearer"} ${auth.accessToken}` : null;
+    if (!authorization) return;
+    const amount = Number(manualOpeningAmount.replace(/[^0-9.,]/g, "").replace(/\./g, "").replace(",", "."));
+    if (cashDrawerSource === "manual" && (!Number.isFinite(amount) || amount < 0)) {
+      setCashDrawerError("Ingresa un monto inicial válido.");
+      return;
+    }
+    setCashDrawerSaving(true);
+    try {
+      const response = await fetch("/api/cash-drawer/opening", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization },
+        body: JSON.stringify({ source: cashDrawerSource, opening_amount: cashDrawerSource === "manual" ? amount : null }),
+      });
+      const payload = (await response.json().catch(() => null)) as CashDrawerSummary | { message?: string; detail?: string } | null;
+      if (!response.ok) throw new Error((payload as any)?.message || (payload as any)?.detail || "No se pudo guardar el monto inicial.");
+      setCashDrawer(payload as CashDrawerSummary);
+      setCashDrawerError(null);
+    } catch (error) {
+      setCashDrawerError(error instanceof Error ? error.message : "No se pudo guardar el monto inicial.");
+    } finally {
+      setCashDrawerSaving(false);
+    }
+  }
   const cartTotals = useMemo(() => {
     let subtotal = 0;
     let tax = 0;
@@ -597,6 +662,7 @@ export default function PosScreen() {
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? updatedOrder : o)),
       );
+      if (closePayload.payment_method === "cash") void loadCashDrawer();
       setPaymentStatus({ kind: "success", message: "Pedido pagado." });
       return updatedOrder;
     } catch {
@@ -1845,6 +1911,67 @@ export default function PosScreen() {
         </div>
       ) : null}
 
+      {cashDrawer && !cashDrawer.initialized ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-dark/60 p-4" role="dialog" aria-modal="true" aria-labelledby="cash-drawer-opening-title">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-6 dark:bg-dark-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Inicio de caja</p>
+            <h3 id="cash-drawer-opening-title" className="mt-2 text-xl font-bold text-dark dark:text-white">
+              Monto en efectivo disponible
+            </h3>
+            <p className="mt-2 text-sm text-dark-6">
+              Define con cuánto efectivo inicia tu caja hoy. Las ventas por transferencia y datáfono no se sumarán a este monto.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <button
+                type="button"
+                onClick={() => setCashDrawerSource("previous_cash_sales")}
+                className={`w-full rounded-xl border p-4 text-left transition ${cashDrawerSource === "previous_cash_sales" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-stroke hover:bg-gray-1 dark:border-dark-3 dark:hover:bg-dark-3"}`}
+              >
+                <span className="block font-semibold text-dark dark:text-white">Enlazar ventas del día anterior</span>
+                <span className="mt-1 block text-sm text-dark-6">
+                  Iniciar con las ventas en efectivo de ayer: {formatMoney(cashDrawer.previous_day_cash_sales)}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCashDrawerSource("manual")}
+                className={`w-full rounded-xl border p-4 text-left transition ${cashDrawerSource === "manual" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-stroke hover:bg-gray-1 dark:border-dark-3 dark:hover:bg-dark-3"}`}
+              >
+                <span className="block font-semibold text-dark dark:text-white">Monto manual</span>
+                <span className="mt-1 block text-sm text-dark-6">Digita el efectivo con el que inicias el día.</span>
+              </button>
+
+              {cashDrawerSource === "manual" ? (
+                <label className="block text-sm font-medium text-dark dark:text-white">
+                  Efectivo inicial
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoFocus
+                    value={manualOpeningAmount}
+                    onChange={(event) => setManualOpeningAmount(event.target.value)}
+                    placeholder="Ej. 50000"
+                    className="mt-2 w-full rounded-lg border border-stroke bg-transparent px-3 py-2 text-dark outline-none focus:border-primary dark:border-dark-3 dark:text-white"
+                  />
+                </label>
+              ) : null}
+            </div>
+
+            {cashDrawerError ? <p className="mt-3 text-sm text-red">{cashDrawerError}</p> : null}
+            <button
+              type="button"
+              onClick={() => void saveCashDrawerOpening()}
+              disabled={cashDrawerSaving}
+              className="mt-5 w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {cashDrawerSaving ? "Guardando…" : "Iniciar caja"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {selectedTableId ? (
         <section className="order-first" aria-label="Toma de pedidos">
           <div className="grid w-full grid-cols-1 gap-4 rounded-2xl border border-stroke bg-gray-2 p-4 shadow-1 dark:border-dark-3 dark:bg-gray-dark md:grid-cols-[2fr_1fr]">
@@ -1856,6 +1983,21 @@ export default function PosScreen() {
             </div>
 
             <aside className="flex flex-col rounded-2xl border border-stroke bg-white p-4 shadow-sm dark:border-dark-3 dark:bg-dark-2">
+              <div className="mb-4 rounded-xl border border-primary/25 bg-primary/5 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-dark dark:text-white">Efectivo esperado en caja</span>
+                  <span className="text-base font-bold text-primary">
+                    {cashDrawerLoading ? "…" : cashDrawer?.initialized ? formatMoney(cashDrawer.current_cash) : "Sin iniciar"}
+                  </span>
+                </div>
+                {cashDrawer?.initialized ? (
+                  <p className="mt-1 text-xs text-dark-6">
+                    Inicial: {formatMoney(cashDrawer.opening_amount)} · Ventas en efectivo: {formatMoney(cashDrawer.today_cash_sales)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-dark-6">Configura el efectivo inicial para calcular la caja de hoy.</p>
+                )}
+              </div>
               <h4 className="text-base font-semibold text-dark dark:text-white">
                 Pedido
               </h4>

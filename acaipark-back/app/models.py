@@ -313,6 +313,20 @@ class PosOrderItem(Base):
     order = relationship("PosOrder", back_populates="items")
 
 
+class CashDrawerOpening(Base):
+    __tablename__ = "cash_drawer_openings"
+    __table_args__ = (
+        UniqueConstraint("user_id", "business_date", name="uq_cash_drawer_opening_user_day"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    business_date = Column(Date, nullable=False, index=True)
+    opening_amount = Column(Numeric(14, 2), nullable=False, default=0)
+    source = Column(String(30), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class Sale(Base):
     __tablename__ = "sales"
 

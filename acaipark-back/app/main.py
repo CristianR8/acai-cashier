@@ -4,7 +4,7 @@ import logging
 from fastapi import FastAPI
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import text
-from . import auth, db, expenses, factus, inventory, loyalty, menu, models, personnel, pos, reservations, sales
+from . import auth, cash_drawer, db, expenses, factus, inventory, loyalty, menu, models, personnel, pos, reservations, sales
 
 app = FastAPI()
 
@@ -129,6 +129,7 @@ def _init_db() -> None:
         raise
 
 app.include_router(auth.router)
+app.include_router(cash_drawer.router)
 app.include_router(menu.router)
 app.include_router(inventory.router)
 app.include_router(expenses.router)

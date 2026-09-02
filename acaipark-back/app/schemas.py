@@ -453,6 +453,21 @@ class SaleItemOut(BaseModel):
         orm_mode = True
 
 
+class CashDrawerOpeningCreate(BaseModel):
+    source: str
+    opening_amount: Decimal | None = Field(default=None, ge=0)
+
+
+class CashDrawerSummaryOut(BaseModel):
+    business_date: date
+    initialized: bool
+    opening_amount: Decimal | None = None
+    opening_source: str | None = None
+    previous_day_cash_sales: Decimal
+    today_cash_sales: Decimal
+    current_cash: Decimal | None = None
+
+
 class SaleOut(BaseModel):
     id: int
     order_id: int
