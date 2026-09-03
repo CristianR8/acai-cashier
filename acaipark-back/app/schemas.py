@@ -402,6 +402,7 @@ class PosOrderItemOut(BaseModel):
 
 class PosOrderOut(BaseModel):
     id: int
+    display_number: int | None = None
     table_id: int
     sale_id: int | None = None
     status: str

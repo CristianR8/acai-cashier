@@ -106,6 +106,8 @@ def _auto_migrate_schema() -> None:
                     "ADD COLUMN IF NOT EXISTS history_cleared BOOLEAN NOT NULL DEFAULT FALSE"
                 )
             )
+            conn.execute(text("ALTER TABLE IF EXISTS pos_orders ADD COLUMN IF NOT EXISTS display_number INTEGER"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_pos_orders_display_number ON pos_orders (display_number) WHERE display_number IS NOT NULL"))
     except Exception as exc:
         logger.warning("Auto-migration skipped/failed: %s", exc)
 
