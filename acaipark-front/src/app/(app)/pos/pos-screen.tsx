@@ -122,7 +122,8 @@ type PosOrderItemCreate = {
   note?: string | null;
 };
 
-type CartEditDraft = GuidedOrder & { cartItemId: number };
+type CartLine = PosOrderItemCreate & { cartItemId: string };
+type CartEditDraft = GuidedOrder & { cartItemId: string };
 
 type PosOrderOut = {
   id: number;
@@ -400,7 +401,7 @@ export default function PosScreen() {
 
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [viewOrder, setViewOrder] = useState<PosOrderOut | null>(null);
-  const [cart, setCart] = useState<Record<number, PosOrderItemCreate>>({});
+  const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [guidedEditDraft, setGuidedEditDraft] = useState<CartEditDraft | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const [hiddenFinishedOrderIds, setHiddenFinishedOrderIds] = useState<
@@ -1054,19 +1055,18 @@ export default function PosScreen() {
       const draft = { ...prev };
       const editingItem = guidedEditDraft ? draft[guidedEditDraft.cartItemId] : undefined;
       if (guidedEditDraft) delete draft[guidedEditDraft.cartItemId];
-      const existing = draft[baseItem.id];
+      const cartItemId = guidedEditDraft?.cartItemId ?? `${baseItem.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       return {
         ...draft,
-        [baseItem.id]: {
+        [cartItemId]: {
+          cartItemId,
           menu_item_id: baseItem.id,
-          quantity: editingItem?.quantity ?? (existing ? existing.quantity + 1 : 1),
+          quantity: editingItem?.quantity ?? 1,
           unit_price: configuredOrder.price,
           tax_rate: 0,
-          discount_rate: editingItem?.discount_rate ?? existing?.discount_rate ?? null,
-          courtesy: editingItem?.courtesy ?? existing?.courtesy ?? false,
-          note: editingItem ? configuredOrder.note : existing?.note
-            ? `${existing.note}\n${configuredOrder.note}`
-            : configuredOrder.note,
+          discount_rate: editingItem?.discount_rate ?? null,
+          courtesy: editingItem?.courtesy ?? false,
+          note: configuredOrder.note,
         },
       };
     });
@@ -1078,8 +1078,8 @@ export default function PosScreen() {
   }
 
   function updateCart(
-    id: number,
-    updater: (item: PosOrderItemCreate) => PosOrderItemCreate | null,
+    id: string,
+    updater: (item: CartLine) => CartLine | null,
   ) {
     setCart((prev) => {
       const current = prev[id];
@@ -2010,7 +2010,7 @@ export default function PosScreen() {
                 ) : (
                   cartItems.map((ci) => (
                     <div
-                      key={ci.menu_item_id}
+                      key={ci.cartItemId}
                       className="rounded-xl border border-stroke bg-gray-1 p-3 text-sm text-dark transition dark:border-dark-3 dark:bg-dark-2 dark:text-white"
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -2027,7 +2027,7 @@ export default function PosScreen() {
                             min={1}
                             value={ci.quantity}
                             onChange={(e) =>
-                              updateCart(ci.menu_item_id, (curr) => ({
+                              updateCart(ci.cartItemId, (curr) => ({
                                 ...curr,
                                 quantity: Math.max(
                                   1,
@@ -2059,7 +2059,7 @@ export default function PosScreen() {
                             step="0.01"
                             value={ci.discount_rate ?? ""}
                             onChange={(e) =>
-                              updateCart(ci.menu_item_id, (curr) => ({
+                              updateCart(ci.cartItemId, (curr) => ({
                                 ...curr,
                                 discount_rate:
                                   e.target.value === ""
@@ -2081,7 +2081,7 @@ export default function PosScreen() {
                             type="checkbox"
                             checked={ci.courtesy}
                             onChange={(e) =>
-                              updateCart(ci.menu_item_id, (curr) => ({
+                              updateCart(ci.cartItemId, (curr) => ({
                                 ...curr,
                                 courtesy: e.target.checked,
                               }))
@@ -2112,7 +2112,7 @@ export default function PosScreen() {
                           onClick={() => {
                             const menuItem = menuItems.find((item) => item.id === ci.menu_item_id);
                             setGuidedEditDraft({
-                              cartItemId: ci.menu_item_id,
+                              cartItemId: ci.cartItemId,
                               name: menuItem?.name ?? "Producto personalizado",
                               menuItemName: menuItem?.name ?? "Açaí personalizado",
                               price: ci.unit_price,
@@ -2130,10 +2130,10 @@ export default function PosScreen() {
                           onClick={() => {
                             setCart((prev) => {
                               const clone = { ...prev };
-                              delete clone[ci.menu_item_id];
+                              delete clone[ci.cartItemId];
                               return clone;
                             });
-                            setGuidedEditDraft((current) => current?.cartItemId === ci.menu_item_id ? null : current);
+                            setGuidedEditDraft((current) => current?.cartItemId === ci.cartItemId ? null : current);
                           }}
                           title="Eliminar producto"
                           aria-label="Eliminar producto"
@@ -2146,7 +2146,7 @@ export default function PosScreen() {
                         <textarea
                           value={ci.note ?? ""}
                           onChange={(e) =>
-                            updateCart(ci.menu_item_id, (curr) => ({
+                            updateCart(ci.cartItemId, (curr) => ({
                               ...curr,
                               note: e.target.value || null,
                             }))
