@@ -2233,12 +2233,12 @@ export default function PosScreen() {
                     disabled={submitStatus.kind === "loading"}
                     className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-gray-4 disabled:text-dark-6 disabled:opacity-70"
                   >
-                    {submitStatus.kind === "loading" ? "Enviando…" : "Enviar comanda"}
+                    {submitStatus.kind === "loading" ? "Preparando pago…" : "Ir al pago"}
                   </button>
                   {submitStatus.kind === "loading" ? (
                     <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary" role="status" aria-live="polite">
                       <span className="size-5 shrink-0 animate-spin rounded-full border-2 border-primary/25 border-t-primary" aria-hidden="true" />
-                      <span>Imprimiendo comanda</span>
+                      <span>Preparando el pago</span>
                     </div>
                   ) : null}
                 </div>
