@@ -74,8 +74,7 @@ export default function SigninWithPassword() {
         false,
       );
 
-      router.push("/pos");
-      router.refresh();
+      router.replace("/pos");
     } catch {
       setError("No se pudo conectar con el servidor.");
     } finally {
