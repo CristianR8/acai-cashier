@@ -737,9 +737,8 @@ def mark_order_closed(
     # remains active as ``paid`` until it is physically delivered.
     order.status = "paid"
 
-    should_print_receipt = order.sale is None or (
-        customer_id is not None and order.sale.customer_id != customer_id
-    )
+    # Updating an already-paid order must never enqueue the receipt again.
+    should_print_receipt = order.sale is None
     sale = _create_sale_from_order(
         db_session,
         order,
