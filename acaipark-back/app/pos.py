@@ -686,9 +686,12 @@ def mark_order_closed(
     db_session: Session = Depends(db.get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    order = db_session.query(models.PosOrder).filter(models.PosOrder.id == order_id).first()
+    order = db_session.query(models.PosOrder).filter(models.PosOrder.id == order_id).with_for_update().first()
     if not order:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
+
+    if order.status == "void":
+        raise HTTPException(status_code=409, detail="El pedido fue anulado; vuelve a enviar la comanda.")
 
     customer_id = None
     if payload is not None:
@@ -737,9 +740,8 @@ def mark_order_closed(
     # remains active as ``paid`` until it is physically delivered.
     order.status = "paid"
 
-    should_print_receipt = order.sale is None or (
-        customer_id is not None and order.sale.customer_id != customer_id
-    )
+    # Updating the customer of an already paid order must not print again.
+    should_print_receipt = order.sale is None
     sale = _create_sale_from_order(
         db_session,
         order,
@@ -780,6 +782,26 @@ def mark_order_void(order_id: int, db_session: Session = Depends(db.get_db)):
     order.closed_at = now
 
     db_session.add(order)
+    db_session.commit()
+    db_session.refresh(order)
+    return order
+
+
+@router.post("/orders/{order_id}/return-to-cart", response_model=schemas.PosOrderOut)
+def return_order_to_cart(order_id: int, db_session: Session = Depends(db.get_db)):
+    order = (
+        db_session.query(models.PosOrder)
+        .filter(models.PosOrder.id == order_id)
+        .with_for_update()
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    if order.sale is not None or order.delivered_at is not None or order.status not in {"open", "sent", "void"}:
+        raise HTTPException(status_code=409, detail="El pedido ya fue pagado o entregado y no se puede devolver al carrito.")
+    # Preserve the sent order in history and allow safe retries after a lost response.
+    order.status = "void"
+    order.closed_at = order.closed_at or datetime.now(timezone.utc)
     db_session.commit()
     db_session.refresh(order)
     return order

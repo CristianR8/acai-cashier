@@ -421,6 +421,12 @@ export default function PosScreen() {
     | { kind: "error"; message: string }
   >({ kind: "idle" });
 
+  const [paymentDraft, setPaymentDraft] = useState<{
+    cart: Record<string, CartLine>;
+    tableId: number | null;
+    note: string;
+    guidedEdit: CartEditDraft | null;
+  } | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentStep, setPaymentStep] = useState<
     "choice" | "occasional" | "new" | "existing"
@@ -776,15 +782,44 @@ export default function PosScreen() {
   }
 
   function openPaymentModal(order: PosOrderOut) {
+    setPaymentDraft(null);
     setPaymentOrder(order);
     setPaymentModalOpen(true);
     resetPaymentForm();
   }
 
   function closePaymentModal() {
+    setPaymentDraft(null);
     setPaymentModalOpen(false);
     setPaymentOrder(null);
     resetPaymentForm();
+  }
+
+  async function returnToOrder() {
+    if (paymentStatus.kind === "loading") return;
+    if (!paymentDraft || !paymentOrder) {
+      closePaymentModal();
+      return;
+    }
+    setPaymentStatus({ kind: "loading" });
+    try {
+      const response = await fetch(`/api/pos/orders/${paymentOrder.id}/return-to-cart`, {
+        method: "POST",
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.message || "No se pudo recuperar el pedido.");
+      }
+      setCart(paymentDraft.cart);
+      setSelectedTableId(paymentDraft.tableId);
+      setNoteInput(paymentDraft.note);
+      setGuidedEditDraft(paymentDraft.guidedEdit);
+      setSubmitStatus({ kind: "idle" });
+      closePaymentModal();
+      void loadOrders();
+    } catch (error) {
+      setPaymentStatus({ kind: "error", message: error instanceof Error ? error.message : "No se pudo recuperar el pedido." });
+    }
   }
 
   async function loadCustomers() {
@@ -1159,6 +1194,7 @@ export default function PosScreen() {
         return;
       }
       openPaymentModal(payload as PosOrderOut);
+      setPaymentDraft({ cart: structuredClone(cart), tableId: selectedTableId, note: noteInput, guidedEdit: guidedEditDraft });
       setCart({});
       setGuidedEditDraft(null);
       setNoteInput("");
@@ -1528,7 +1564,6 @@ export default function PosScreen() {
           className="fixed inset-0 z-99 flex animate-[fadeIn_160ms_ease-out_forwards] items-center justify-center bg-black/60 p-4 opacity-0"
           role="dialog"
           aria-modal="true"
-          onClick={closePaymentModal}
         >
           <div
             className="w-full max-w-5xl animate-[fadeIn_200ms_ease-out_60ms_forwards] rounded-2xl border border-stroke bg-white p-4 opacity-0 shadow-2xl dark:border-dark-3 dark:bg-gray-dark sm:p-5"
@@ -1545,14 +1580,15 @@ export default function PosScreen() {
               </div>
               <button
                 type="button"
-                onClick={closePaymentModal}
-                className="rounded-lg border border-stroke px-3 py-1.5 text-sm font-semibold text-dark hover:bg-gray-2 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
+                onClick={returnToOrder}
+                disabled={paymentStatus.kind === "loading"}
+                className="rounded-lg border border-stroke px-3 py-1.5 text-sm font-semibold text-dark hover:bg-gray-2 disabled:opacity-50 dark:border-dark-3 dark:text-white dark:hover:bg-dark-2"
               >
-                Cerrar
+                Volver atrás
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div inert={paymentStatus.kind === "loading"} className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
               <label className="inline-flex items-center gap-2 text-sm font-medium text-dark dark:text-white">
                 <input
