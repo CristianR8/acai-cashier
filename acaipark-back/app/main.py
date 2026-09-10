@@ -45,6 +45,9 @@ def _auto_migrate_schema() -> None:
                 text("ALTER TABLE IF EXISTS sales ADD COLUMN IF NOT EXISTS cash_received NUMERIC(14, 2)")
             )
             conn.execute(
+                text("ALTER TABLE IF EXISTS sales ADD COLUMN IF NOT EXISTS cash_denomination_counts JSON NOT NULL DEFAULT '{}'")
+            )
+            conn.execute(
                 text("ALTER TABLE IF EXISTS sales ADD COLUMN IF NOT EXISTS registered_by_user_id INTEGER")
             )
             conn.execute(

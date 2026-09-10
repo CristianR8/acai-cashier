@@ -436,6 +436,7 @@ class PosOrderClose(BaseModel):
     apply_inc: bool = False
     payment_method: PaymentMethod = PaymentMethod.cash
     cash_received: Decimal | None = Field(default=None, ge=0)
+    cash_denomination_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class SaleItemOut(BaseModel):
@@ -485,6 +486,7 @@ class SaleOut(BaseModel):
     total: Decimal
     payment_method: PaymentMethod | None = None
     cash_received: Decimal | None = None
+    cash_denomination_counts: dict[str, int] = Field(default_factory=dict)
     created_at: datetime
     electronic_invoice_status: str | None = None
     electronic_invoice_number: str | None = None
