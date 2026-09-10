@@ -37,7 +37,7 @@ const products: Option[] = [
   { id: "cafe", name: "Café", description: "Café listo para servir.", price: 0, image: "☕", menuItemName: "Café" },
   { id: "fresas", name: "Fresas", description: "Fresas listas para servir.", price: 14000, image: "🍓", menuItemName: "Fresas" },
   { id: "agua", name: "Botella de agua", description: "Agua para llevar.", price: 5000, image: "💧", menuItemName: "BOTELLA DE AGUA" },
-  { id: "topping", name: "Topping", description: "Adicional listo para servir.", price: 3000, image: "🍪", menuItemName: "Topping" },
+  { id: "topping", name: "Topping", description: "Adicional listo para servir.", price: 2000, image: "🍪", menuItemName: "Topping" },
   { id: "salsa", name: "Salsa", description: "Adicional listo para servir.", price: 3000, image: "🍯", menuItemName: "Salsa" },
 ];
 
