@@ -443,6 +443,13 @@ export default function PosScreen() {
   const [applyConsumptionTax, setApplyConsumptionTax] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [receivedAmountInput, setReceivedAmountInput] = useState("");
+  const [cashDenominations, setCashDenominations] = useState<Record<string, number>>({});
+  function changeCashCount(denomination: number, quantity: number) {
+    const next = { ...cashDenominations, [String(denomination)]: Math.max(0, Math.trunc(quantity || 0)) };
+    setCashDenominations(next);
+    setReceivedAmountInput(String(Object.entries(next).reduce((sum, [value, count]) => sum + Number(value) * count, 0)));
+  }
+
   const [cashKeypadOpen, setCashKeypadOpen] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<
     | { kind: "idle" }
@@ -630,6 +637,7 @@ export default function PosScreen() {
       apply_inc?: boolean;
       payment_method?: PaymentMethod;
       cash_received?: number | null;
+      cash_denominations?: Record<string, number> | null;
     },
   ): Promise<PosOrderOut | null> {
     try {
@@ -737,6 +745,7 @@ export default function PosScreen() {
     setLoyaltyQrDataUrl("");
     setApplyConsumptionTax(false);
     setPaymentMethod("cash");
+    setCashDenominations({});
     setReceivedAmountInput("");
     setCashKeypadOpen(false);
     setPaymentStatus({ kind: "idle" });
@@ -763,6 +772,7 @@ export default function PosScreen() {
   }
 
   function appendCashKey(key: string) {
+    setCashDenominations({});
     setReceivedAmountInput((current) => {
       const digits = current.replace(/\D/g, "");
       if (key === "backspace") return digits.slice(0, -1);
@@ -923,6 +933,7 @@ export default function PosScreen() {
       apply_inc: applyConsumptionTax,
       payment_method: paymentMethod,
       cash_received: paymentMethod === "cash" ? receivedAmount : null,
+      cash_denominations: paymentMethod === "cash" && Object.keys(cashDenominations).length ? cashDenominations : null,
     });
     if (closedOrder) {
       closePaymentModal();
@@ -942,6 +953,7 @@ export default function PosScreen() {
       apply_inc: applyConsumptionTax,
       payment_method: paymentMethod,
       cash_received: paymentMethod === "cash" ? receivedAmount : null,
+      cash_denominations: paymentMethod === "cash" && Object.keys(cashDenominations).length ? cashDenominations : null,
     };
     const closedOrder = await handleMarkOrderPaid(
       paymentOrder.id,
@@ -971,6 +983,7 @@ export default function PosScreen() {
       apply_inc: applyConsumptionTax,
       payment_method: paymentMethod,
       cash_received: paymentMethod === "cash" ? receivedAmount : null,
+      cash_denominations: paymentMethod === "cash" && Object.keys(cashDenominations).length ? cashDenominations : null,
     };
     const closedOrder = await handleMarkOrderPaid(
       paymentOrder.id,
@@ -1681,7 +1694,7 @@ export default function PosScreen() {
                         key={amount}
                         type="button"
                         onClick={() => {
-                          setReceivedAmountInput(String(amount));
+                          changeCashCount(amount, (cashDenominations[String(amount)] ?? 0) + 1);
                           setCashKeypadOpen(false);
                         }}
                         className="overflow-hidden rounded-md border border-stroke bg-white text-[11px] font-semibold text-dark transition hover:border-primary hover:ring-1 hover:ring-primary dark:border-dark-3 dark:bg-gray-dark dark:text-white"
@@ -1691,6 +1704,18 @@ export default function PosScreen() {
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2 text-xs">Cada toque agrega un billete. Ajusta las cantidades de billetes y monedas recibidos:</p>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {[100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50].map((denomination) => (
+                      <label key={denomination} className="text-xs">
+                        {formatMoney(denomination)}
+                        <input type="number" min="0" step="1" aria-label={`Cantidad de ${denomination}`} value={cashDenominations[String(denomination)] ?? 0}
+                          onChange={(event) => changeCashCount(denomination, Number(event.target.value))}
+                          className="mt-1 w-full rounded border border-stroke bg-transparent p-1" />
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs">Otro valor y Pago exacto registran el monto sin desglose de denominaciones.</p>
                   <button
                     type="button"
                     onClick={() => setCashKeypadOpen(true)}
@@ -1746,6 +1771,7 @@ export default function PosScreen() {
                     setPaymentStep("occasional");
                     setPaymentStatus({ kind: "idle" });
                     if (paymentMethod === "cash" && paymentPreview) {
+                      setCashDenominations({});
                       setReceivedAmountInput(String(paymentPreview.total));
                     }
                   }}
