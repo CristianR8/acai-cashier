@@ -15,6 +15,7 @@ def _auto_migrate_schema() -> None:
         return
     try:
         with db.engine.begin() as conn:
+            conn.execute(text("ALTER TABLE IF EXISTS sales ADD COLUMN IF NOT EXISTS cash_denominations JSON"))
             conn.execute(text("ALTER TABLE IF EXISTS inventory_products ALTER COLUMN unit DROP NOT NULL"))
             conn.execute(text("ALTER TABLE IF EXISTS inventory_products DROP COLUMN IF EXISTS reorder_point"))
             conn.execute(
