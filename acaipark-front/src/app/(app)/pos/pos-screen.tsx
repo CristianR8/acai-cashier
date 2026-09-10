@@ -1714,7 +1714,6 @@ export default function PosScreen() {
                     setPaymentStep("occasional");
                     setPaymentStatus({ kind: "idle" });
                     if (paymentMethod === "cash" && paymentPreview) {
-                      setCashDenominations({});
                       setReceivedAmountInput(String(paymentPreview.total));
                     }
                   }}
