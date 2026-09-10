@@ -122,6 +122,7 @@ def _ensure_guided_addons() -> None:
         addons = (
             ("Topping", "2000.00"),
             ("Salsa", "3000.00"),
+            ("Café Americano", "5000.00"),
         )
         for name, price in addons:
             item = (
@@ -129,6 +130,12 @@ def _ensure_guided_addons() -> None:
                 .filter(models.MenuItem.name.ilike(name))
                 .first()
             )
+            if item is None and name == "Café Americano":
+                item = (
+                    db_session.query(models.MenuItem)
+                    .filter(models.MenuItem.name.ilike("Café"))
+                    .first()
+                )
             if item is None:
                 db_session.add(
                     models.MenuItem(
@@ -141,8 +148,10 @@ def _ensure_guided_addons() -> None:
                 )
             else:
                 item.is_active = True
-                if name == "Topping":
+                if name in {"Topping", "Café Americano"}:
                     item.price = price
+                if name == "Café Americano":
+                    item.name = name
         db_session.commit()
     except Exception as exc:
         db_session.rollback()
