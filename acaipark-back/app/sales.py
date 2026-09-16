@@ -63,6 +63,7 @@ def sales_by_product(period: str | None = None, db_session: Session = Depends(db
         .group_by(models.SaleItem.menu_item_id, models.SaleItem.name, models.SaleItem.category)
         .order_by(func.sum(models.SaleItem.line_total).desc())
     )
+    query = query.filter(models.Sale.status == "active")
     if start_date is not None:
         query = query.filter(models.Sale.created_at >= start_date)
     rows = query.all()
@@ -94,6 +95,7 @@ def sales_by_table(period: str | None = None, db_session: Session = Depends(db.g
         .group_by(models.PosOrder.table_id, models.PosTable.name, models.PosTable.is_active)
         .order_by(func.sum(models.Sale.total).desc())
     )
+    query = query.filter(models.Sale.status == "active")
     if start_date is not None:
         query = query.filter(models.Sale.created_at >= start_date)
     rows = query.all()
@@ -136,6 +138,7 @@ def sales_adjustments_by_month(
         .group_by(year_expr, month_expr)
         .order_by(year_expr.desc(), month_expr.desc())
     )
+    query = query.filter(models.Sale.status == "active")
     if start_date is not None:
         query = query.filter(models.Sale.created_at >= start_date)
     rows = query.all()

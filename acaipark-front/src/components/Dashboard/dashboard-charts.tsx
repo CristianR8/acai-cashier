@@ -12,7 +12,7 @@ dayjs.extend(timezone);
 
 const COLOMBIA_TZ = "America/Bogota";
 
-type Sale = { total: number | string; created_at: string };
+type Sale = { total: number | string; created_at: string; status?: string };
 type Purchase = { total_cost: number | string; created_at: string; purchased_at?: string | null; received_at?: string | null };
 type ExpensePayment = { amount: number | string; payment_date: string };
 type ChartPoint = { x: string; y: number };
@@ -113,7 +113,8 @@ export default function DashboardCharts() {
     return { rangeStart: defaultEnd.subtract(1, "month").startOf("day"), rangeEnd: defaultEnd, rangeLabel: "Último mes" };
   }, [rangePreset, customStart, customEnd, defaultEnd]);
 
-  const salesSeries = useMemo(() => buildSeries(sales, rangeStart, rangeEnd, (sale) => parseDate(sale.created_at), (sale) => safeNumber(sale.total)), [sales, rangeStart, rangeEnd]);
+  const activeSales = useMemo(() => sales.filter((sale) => sale.status !== "void"), [sales]);
+  const salesSeries = useMemo(() => buildSeries(activeSales, rangeStart, rangeEnd, (sale) => parseDate(sale.created_at), (sale) => safeNumber(sale.total)), [activeSales, rangeStart, rangeEnd]);
   const purchasesMonthRange = useMemo(() => {
     const month = dayjs(`${purchasesMonth}-01`).tz(COLOMBIA_TZ);
     return { start: month.startOf("month"), end: month.endOf("month") };
@@ -131,7 +132,7 @@ export default function DashboardCharts() {
   }, [purchases, expenses, rangeStart, rangeEnd]);
 
   const weeklyRangeStart = defaultEnd.subtract(6, "day");
-  const weeklySales = useMemo(() => buildSeries(sales, weeklyRangeStart, defaultEnd, (sale) => parseDate(sale.created_at), (sale) => safeNumber(sale.total)), [sales, weeklyRangeStart, defaultEnd]);
+  const weeklySales = useMemo(() => buildSeries(activeSales, weeklyRangeStart, defaultEnd, (sale) => parseDate(sale.created_at), (sale) => safeNumber(sale.total)), [activeSales, weeklyRangeStart, defaultEnd]);
   const weeklyPurchases = useMemo(() => buildSeries(purchases, weeklyRangeStart, defaultEnd, purchaseDate, (purchase) => safeNumber(purchase.total_cost)), [purchases, weeklyRangeStart, defaultEnd]);
   const weeklyExpenses = useMemo(() => buildSeries(expenses, weeklyRangeStart, defaultEnd, (expense) => parseDate(expense.payment_date), (expense) => safeNumber(expense.amount)), [expenses, weeklyRangeStart, defaultEnd]);
   const weeklyTotalExpenses = useMemo(() => weeklyPurchases.map((point, index) => ({ x: point.x, y: point.y + (weeklyExpenses[index]?.y ?? 0) })), [weeklyPurchases, weeklyExpenses]);

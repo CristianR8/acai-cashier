@@ -15,6 +15,7 @@ type Sale = {
   id: number;
   total: number | string;
   courtesy_total: number | string;
+  status?: string;
   created_at: string;
 };
 
@@ -165,28 +166,28 @@ export default function ControlPanel() {
   const salesToday = useMemo(() => {
     return sales.filter((sale) => {
       const created = parseDate(sale.created_at);
-      return created ? isOnOrAfter(created, todayStart) : false;
+      return sale.status !== "void" && created ? isOnOrAfter(created, todayStart) : false;
     });
   }, [sales, todayStart]);
 
   const sales7Days = useMemo(() => {
     return sales.filter((sale) => {
       const created = parseDate(sale.created_at);
-      return created ? isOnOrAfter(created, weekStart) : false;
+      return sale.status !== "void" && created ? isOnOrAfter(created, weekStart) : false;
     });
   }, [sales, weekStart]);
 
   const sales30Days = useMemo(() => {
     return sales.filter((sale) => {
       const created = parseDate(sale.created_at);
-      return created ? isOnOrAfter(created, monthStart) : false;
+      return sale.status !== "void" && created ? isOnOrAfter(created, monthStart) : false;
     });
   }, [sales, monthStart]);
 
   const salesYear = useMemo(() => {
     return sales.filter((sale) => {
       const created = parseDate(sale.created_at);
-      return created ? isOnOrAfter(created, yearStart) : false;
+      return sale.status !== "void" && created ? isOnOrAfter(created, yearStart) : false;
     });
   }, [sales, yearStart]);
 
@@ -282,7 +283,7 @@ export default function ControlPanel() {
               <TableBody>
                 {topProductsRows.map((row) => (
                   <TableRow
-                    key={row.menu_item_id}
+                    key={`${row.menu_item_id}-${row.name}-${row.category}`}
                     className="transition-colors hover:bg-primary/5"
                   >
                     <TableCell className="font-medium text-black dark:text-white">

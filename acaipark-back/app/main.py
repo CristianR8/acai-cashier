@@ -54,6 +54,9 @@ def _auto_migrate_schema() -> None:
                 text("ALTER TABLE IF EXISTS sales ADD COLUMN IF NOT EXISTS registered_by_name VARCHAR(255)")
             )
             conn.execute(
+                text("ALTER TABLE IF EXISTS sales ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'")
+            )
+            conn.execute(
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_sales_registered_by_user_id "
                     "ON sales (registered_by_user_id)"
@@ -111,12 +114,19 @@ def _auto_migrate_schema() -> None:
             )
             conn.execute(text("ALTER TABLE IF EXISTS pos_orders ADD COLUMN IF NOT EXISTS display_number INTEGER"))
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_pos_orders_display_number ON pos_orders (display_number) WHERE display_number IS NOT NULL"))
+            conn.execute(text("ALTER TABLE IF EXISTS pos_order_items ALTER COLUMN menu_item_id DROP NOT NULL"))
+            conn.execute(text("ALTER TABLE IF EXISTS sale_items ALTER COLUMN menu_item_id DROP NOT NULL"))
     except Exception as exc:
         logger.warning("Auto-migration skipped/failed: %s", exc)
 
 
 def _ensure_guided_addons() -> None:
-    """Create the menu items required by the guided POS flow."""
+    """Create the menu items used by the guided POS flow.
+
+    Guided orders no longer require an existing menu item: order items can be
+    persisted with the product data sent by the frontend. These add-ons keep
+    classic guided products linked to real menu items when available.
+    """
     db_session = db.SessionLocal()
     try:
         addons = (

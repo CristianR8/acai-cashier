@@ -26,6 +26,7 @@ def _cash_sales_total(db_session: Session, user_id: int, day: date) -> Decimal:
         .filter(
             models.Sale.registered_by_user_id == user_id,
             models.Sale.payment_method == "cash",
+            models.Sale.status == "active",
             models.Sale.created_at >= start,
             models.Sale.created_at < end,
         )
