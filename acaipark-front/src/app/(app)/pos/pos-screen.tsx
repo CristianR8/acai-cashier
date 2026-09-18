@@ -434,6 +434,7 @@ export default function PosScreen() {
     "choice" | "occasional" | "new" | "existing"
   >("choice");
   const [paymentOrder, setPaymentOrder] = useState<PosOrderOut | null>(null);
+  const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
   const [customerList, setCustomerList] = useState<Customer[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -827,6 +828,7 @@ export default function PosScreen() {
       setSelectedTableId(paymentDraft.tableId);
       setNoteInput(paymentDraft.note);
       setGuidedEditDraft(paymentDraft.guidedEdit);
+      setEditingOrderId(paymentOrder.id);
       setSubmitStatus({ kind: "idle" });
       closePaymentModal();
       void loadOrders();
@@ -1172,8 +1174,9 @@ export default function PosScreen() {
         });
         return;
       }
-      const res = await fetch("/api/pos/orders", {
-        method: "POST",
+      const isEditingOrder = editingOrderId !== null;
+      const res = await fetch(isEditingOrder ? `/api/pos/orders/${editingOrderId}` : "/api/pos/orders", {
+        method: isEditingOrder ? "PUT" : "POST",
         headers: {
           "content-type": "application/json",
           authorization,
@@ -1209,6 +1212,7 @@ export default function PosScreen() {
         return;
       }
       openPaymentModal(payload as PosOrderOut);
+      setEditingOrderId(null);
       setPaymentDraft({ cart: structuredClone(cart), tableId: selectedTableId, note: noteInput, guidedEdit: guidedEditDraft });
       setCart({});
       setGuidedEditDraft(null);
