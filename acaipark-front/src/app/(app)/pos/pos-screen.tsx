@@ -29,7 +29,7 @@ dayjs.extend(timezone);
 const COLOMBIA_TZ = "America/Bogota";
 const INC_RATE = 0.08;
 const POS_HIDDEN_FINISHED_ORDERS_KEY = "pos_hidden_finished_orders_v1";
-const FINISHED_ORDER_STATUSES = new Set(["paid", "closed", "void"]);
+const FINISHED_ORDER_STATUSES = new Set(["paid", "closed", "void", "edit_discarded"]);
 
 function loadHiddenFinishedOrderIdsFromStorage() {
   if (typeof window === "undefined") return new Set<number>();
@@ -573,6 +573,7 @@ export default function PosScreen() {
       orders.filter(
         (o) =>
           FINISHED_ORDER_STATUSES.has(o.status) &&
+          o.status !== "edit_discarded" &&
           !hiddenFinishedOrderIds.has(Number(o.id)),
       ),
     [orders, hiddenFinishedOrderIds],
@@ -1412,10 +1413,10 @@ export default function PosScreen() {
                             <button
                               type="button"
                               onClick={() => handleMarkOrderVoided(order.id)}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-red/70 text-red hover:border-red hover:bg-red/10"
+                              className="flex h-9 items-center justify-center gap-2 rounded-lg border border-red/70 px-3 text-sm font-semibold text-red hover:border-red hover:bg-red/10"
                             >
-                              <span className="sr-only">Anular pedido</span>
                               <RiProhibited2Line />
+                              <span>Anular pedido</span>
                             </button>
                           </Tooltip>
                         ) : null}
@@ -1554,9 +1555,17 @@ export default function PosScreen() {
                               onClick={() => handleMarkOrderVoided(order.id)}
                               className="rounded-md border border-red/40 px-2.5 py-1 text-xs font-semibold text-red transition hover:bg-red/10"
                             >
-                              Anular
+                              Anular pedido
                             </button>
-                          ) : null}
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              className="cursor-not-allowed rounded-md border border-red/20 bg-red/5 px-2.5 py-1 text-xs font-semibold text-red/60"
+                            >
+                              Pedido anulado
+                            </button>
+                          )}
                           <Tooltip label="Ver PDF">
                             <button
                               type="button"
