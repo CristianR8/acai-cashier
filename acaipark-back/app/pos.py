@@ -640,6 +640,37 @@ def create_order(payload: schemas.PosOrderCreate, db_session: Session = Depends(
     return order
 
 
+@router.put("/orders/{order_id}", response_model=schemas.PosOrderOut)
+def update_order_for_payment(order_id: int, payload: schemas.PosOrderCreate, db_session: Session = Depends(db.get_db)):
+    order = db_session.query(models.PosOrder).filter(models.PosOrder.id == order_id).with_for_update().first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    if order.sale is not None or order.delivered_at is not None or order.status not in {"open", "sent"}:
+        raise HTTPException(status_code=409, detail="El pedido ya fue pagado o entregado y no se puede editar.")
+    table = _table_or_404(db_session, payload.table_id)
+    for item in list(order.items):
+        db_session.delete(item)
+    db_session.flush()
+    items: list[models.PosOrderItem] = []
+    now = datetime.now(timezone.utc)
+    for source in payload.items:
+        menu_item_id, name, category = _resolve_order_item_details(db_session, source)
+        quantity, unit_price, discount_amount = Decimal(source.quantity), Decimal(source.unit_price), Decimal(source.discount_amount)
+        if discount_amount < 0:
+            raise HTTPException(status_code=400, detail="Descuento inválido")
+        line_subtotal, line_tax, line_total = (Decimal("0"), Decimal("0"), Decimal("0")) if source.courtesy else _compute_line_amounts(quantity, unit_price, discount_amount, Decimal("0"))
+        item = models.PosOrderItem(order_id=order.id, menu_item_id=menu_item_id, name=name, category=category, zone="bar" if _norm(category) in BAR_CATEGORY_KEYS else "kitchen", quantity=quantity, unit_price=unit_price, tax_rate=Decimal("0"), discount_amount=discount_amount, courtesy=source.courtesy, note=source.note, line_subtotal=line_subtotal, line_tax=line_tax, line_total=line_total, sent_at=now)
+        items.append(item)
+        db_session.add(item)
+    order.table_id = table.id
+    order.service_total = payload.service_total
+    order.subtotal, order.tax_total, order.discount_total, order.courtesy_total, order.total = _compute_order_totals(items, payload.service_total)
+    order.status, order.sent_at = "open", now
+    db_session.commit()
+    db_session.refresh(order)
+    return order
+
+
 @router.get("/orders", response_model=list[schemas.PosOrderOut])
 def list_orders(db_session: Session = Depends(db.get_db)):
     return (
@@ -830,11 +861,9 @@ def return_order_to_cart(order_id: int, db_session: Session = Depends(db.get_db)
     )
     if not order:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
-    if order.sale is not None or order.delivered_at is not None or order.status not in {"open", "sent", "void"}:
+    if order.sale is not None or order.delivered_at is not None or order.status not in {"open", "sent"}:
         raise HTTPException(status_code=409, detail="El pedido ya fue pagado o entregado y no se puede devolver al carrito.")
-    # Preserve the sent order in history and allow safe retries after a lost response.
-    order.status = "void"
-    order.closed_at = order.closed_at or datetime.now(timezone.utc)
+    # Returning to edit is not an annulment. The active order is retained.
     db_session.commit()
     db_session.refresh(order)
     return order
